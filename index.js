@@ -1,5 +1,6 @@
 require("dotenv").config()
 const express = require("express")
+const router = express.Router();
 const app = express();
 const cors = require("cors")
 const jwt = require("jsonwebtoken")
@@ -34,6 +35,7 @@ async function run() {
 
     const articleCollection = client.db("daily_bangladesh").collection("added articles by user")
     const usersCollection = client.db("daily_bangladesh").collection("users")
+    const publishersCollection = client.db("daily_bangladesh").collection("publisher")
 
 
     // jwt related api
@@ -110,7 +112,7 @@ async function run() {
       res.send(result)
     })
 
-    app.get('/articles', async( req, res)=>{
+    app.get('/articles',verifyToken, async( req, res)=>{
       const result = await articleCollection.find().toArray()
       res.send(result)
   })
@@ -121,7 +123,18 @@ async function run() {
       const result = await articleCollection.deleteOne(query)
       res.send(result)
     })  
+    
+    // Publisher related api
+    app.post("/add-publishers",async(req, res)=>{
+      const publisher = req.body;
+      const result = await publishersCollection.insertOne(publisher)
+      res.send(result)
+    })
 
+    app.get("/publishers",async(req, res)=>{
+      const result = await publishersCollection.find().toArray()
+      res.send(result)
+    })
 
 
     // Send a ping to confirm a successful connection
