@@ -105,13 +105,40 @@ async function run() {
       res.send({admin})
     })
 
-    // all article related api  
-    app.post("/add-article", async(req, res)=>{
-      const article = req.body;
-      const result = await articleCollection.insertOne(article)
-      res.send(result)
-    })
 
+   
+    
+    
+
+    // all article related api  
+    app.post("/add-article", async (req, res) => {
+      const article = req.body;
+      article.status = "pending"; // Set default status to "pending"
+      const result = await articleCollection.insertOne(article);
+      res.send(result);
+    });
+
+    app.put("/articles/status/:id", async (req, res) => {
+      const { id } = req.params;
+      const { status } = req.body; // e.g., { status: "approved" }
+      const result = await articleCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status } }
+      );
+      res.send(result);
+    });
+
+    app.get("/articles-approved", async (req, res) => {
+      const { status } = req.query; // Optional query parameter for filtering
+      let query = {};
+      if (status) {
+        query.status = status; // Filter by status if provided
+      }
+      const articles = await articleCollection.find(query).toArray();
+      res.send(articles);
+    });
+        
+    
     app.get('/articles',verifyToken, async( req, res)=>{
       const result = await articleCollection.find().toArray()
       res.send(result)
@@ -123,6 +150,11 @@ async function run() {
       const result = await articleCollection.deleteOne(query)
       res.send(result)
     })  
+
+
+
+
+    
     
     // Publisher related api
     app.post("/add-publishers",async(req, res)=>{
@@ -135,6 +167,33 @@ async function run() {
       const result = await publishersCollection.find().toArray()
       res.send(result)
     })
+
+    // Fetch user data by ID
+   app.get("/users/:id", async (req, res) => {
+   const id = req.params.id;
+   const query = { _id: new ObjectId(id) };
+    const user = await usersCollection.findOne(query);
+    if (!user) {
+    return res.status(404).send({ message: "User not found" });
+   }
+   res.send(user);
+  });
+
+
+    // Update user data by ID
+app.patch("/users/:id", async (req, res) => {
+  const id = req.params.id;
+  const updates = req.body; // Contains updated user data
+  const filter = { _id: new ObjectId(id) };
+  const updatedDoc = {
+    $set: updates,
+  };
+  const result = await usersCollection.updateOne(filter, updatedDoc);
+  if (result.matchedCount === 0) {
+    return res.status(404).send({ message: "User not found" });
+  }
+  res.send(result);
+});
 
 
     // Send a ping to confirm a successful connection
