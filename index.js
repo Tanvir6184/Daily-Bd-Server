@@ -9,8 +9,6 @@ port = process.env.PORT || 5000;
 
 
 
-
-
 // middleware
 app.use(cors());
 app.use(express.json());
@@ -64,7 +62,7 @@ async function run() {
      })
     } 
 
-     // use verify admin after verifyToken
+     // verify admin 
      const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
       const query = { email: email }
@@ -130,14 +128,21 @@ async function run() {
     // all article related api  
     app.post("/add-article", async (req, res) => {
       const article = req.body;
-      article.status = "pending"; // Set default status to "pending"
+      article.status = "pending"; 
       const result = await articleCollection.insertOne(article);
+      res.send(result);
+    });
+
+    app.get("/my-articles", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const result = await articleCollection.find(query).toArray();
       res.send(result);
     });
 
     app.put("/articles/status/:id", async (req, res) => {
       const { id } = req.params;
-      const { status } = req.body; // e.g., { status: "approved" }
+      const { status } = req.body;
       const result = await articleCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: { status } }
@@ -146,10 +151,10 @@ async function run() {
     });
 
     app.get("/articles-approved", async (req, res) => {
-      const { status } = req.query; // Optional query parameter for filtering
+      const { status } = req.query; 
       let query = {};
       if (status) {
-        query.status = status; // Filter by status if provided
+        query.status = status;
       }
       const articles = await articleCollection.find(query).toArray();
       res.send(articles);
@@ -168,6 +173,13 @@ async function run() {
       res.send(result)
     })  
 
+
+    app.get("/article/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: id }
+      const result = await articleCollection.findOne(query)
+      res.send(result);
+    })
 
 
 
@@ -200,7 +212,7 @@ async function run() {
     // Update user data by ID
 app.patch("/users/:id", async (req, res) => {
   const id = req.params.id;
-  const updates = req.body; // Contains updated user data
+  const updates = req.body; 
   const filter = { _id: new ObjectId(id) };
   const updatedDoc = {
     $set: updates,
