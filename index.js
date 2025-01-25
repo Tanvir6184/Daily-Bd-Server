@@ -150,6 +150,43 @@ async function run() {
       res.send(result);
     });
 
+
+
+    
+
+
+    app.put("/make-premium/:id", async (req, res) => {
+      const articleId = req.params.id;
+    
+     
+      if (!ObjectId.isValid(articleId)) {
+        return res.status(400).json({ message: "Invalid article ID" });
+      }
+    
+      try {
+      
+        const query = { _id: new ObjectId(articleId) };
+        const updateDoc = {
+          $set: { isPremium: true },
+        };
+    
+        const result = await articleCollection.updateOne(query, updateDoc);
+    
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "Article not found" });
+        }
+    
+        res.json({ message: "Article marked as premium successfully" });
+      } catch (error) {
+        console.error("Error updating article:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+
+
+
+
     app.get("/articles-approved", async (req, res) => {
       const { status } = req.query; 
       let query = {};
@@ -176,10 +213,10 @@ async function run() {
 
     app.get("/article/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: id }
-      const result = await articleCollection.findOne(query)
+      const query = { _id: new ObjectId(id) };
+      const result = await articleCollection.findOne(query);
       res.send(result);
-    })
+    });
 
 
 
@@ -196,6 +233,9 @@ async function run() {
       const result = await publishersCollection.find().toArray()
       res.send(result)
     })
+
+
+
 
     // Fetch user data by ID
    app.get("/users/:id", async (req, res) => {
