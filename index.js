@@ -3,6 +3,7 @@ const express = require("express")
 const router = express.Router();
 const app = express();
 const cors = require("cors")
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 const jwt = require("jsonwebtoken")
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 port = process.env.PORT || 5000;
@@ -34,6 +35,7 @@ async function run() {
     const articleCollection = client.db("daily_bangladesh").collection("added articles by user")
     const usersCollection = client.db("daily_bangladesh").collection("users")
     const publishersCollection = client.db("daily_bangladesh").collection("publisher")
+    const paymentsCollection = client.db("daily_bangladesh").collection("payments")
 
 
     // jwt related api
@@ -121,6 +123,32 @@ async function run() {
       res.send({admin})
     })
 
+      // Fetch user data by ID
+   app.get("/users/:id", async (req, res) => {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+     const user = await usersCollection.findOne(query);
+     if (!user) {
+     return res.status(404).send({ message: "User not found" });
+    }
+    res.send(user);
+   });
+ 
+ 
+     // Update user data by ID
+   app.patch("/users/:id", async (req, res) => {
+   const id = req.params.id;
+   const updates = req.body; 
+   const filter = { _id: new ObjectId(id) };
+   const updatedDoc = {
+     $set: updates,
+   };
+   const result = await usersCollection.updateOne(filter, updatedDoc);
+   if (result.matchedCount === 0) {
+     return res.status(404).send({ message: "User not found" });
+   }
+   res.send(result);
+ });
 
     
     
@@ -234,35 +262,32 @@ async function run() {
       res.send(result)
     })
 
+    // payment intent
+    app.post("/payment-intent", async(req, res)=>{
+      const {price} = req.body;
+      const amount = parseInt(price * 100);
+      console.log(amount, "inside the intent");
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"]
+      })
+
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
+    })
+
+    app.post("/payments", async(req, res)=>{
+      const payment = req.body;
+      const paymentResult = await paymentsCollection.insertOne(payment);
+      console.log("payment info", payment);
+      res.send(paymentResult)
+    })
 
 
-
-    // Fetch user data by ID
-   app.get("/users/:id", async (req, res) => {
-   const id = req.params.id;
-   const query = { _id: new ObjectId(id) };
-    const user = await usersCollection.findOne(query);
-    if (!user) {
-    return res.status(404).send({ message: "User not found" });
-   }
-   res.send(user);
-  });
-
-
-    // Update user data by ID
-app.patch("/users/:id", async (req, res) => {
-  const id = req.params.id;
-  const updates = req.body; 
-  const filter = { _id: new ObjectId(id) };
-  const updatedDoc = {
-    $set: updates,
-  };
-  const result = await usersCollection.updateOne(filter, updatedDoc);
-  if (result.matchedCount === 0) {
-    return res.status(404).send({ message: "User not found" });
-  }
-  res.send(result);
-});
+  
 
 
     // Send a ping to confirm a successful connection
