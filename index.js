@@ -1,20 +1,16 @@
-require("dotenv").config()
-const express = require("express")
+require("dotenv").config();
+const express = require("express");
 const router = express.Router();
 const app = express();
-const cors = require("cors")
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
-const jwt = require("jsonwebtoken")
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const cors = require("cors");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const jwt = require("jsonwebtoken");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 port = process.env.PORT || 5000;
-
-
 
 // middleware
 app.use(cors());
 app.use(express.json());
-
-
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.9h5lz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -24,7 +20,7 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
 
 async function run() {
@@ -32,131 +28,133 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
-    const articleCollection = client.db("daily_bangladesh").collection("added articles by user")
-    const usersCollection = client.db("daily_bangladesh").collection("users")
-    const publishersCollection = client.db("daily_bangladesh").collection("publisher")
-    const paymentsCollection = client.db("daily_bangladesh").collection("payments")
-
+    const articleCollection = client
+      .db("daily_bangladesh")
+      .collection("added articles by user");
+    const usersCollection = client.db("daily_bangladesh").collection("users");
+    const publishersCollection = client
+      .db("daily_bangladesh")
+      .collection("publisher");
+    const paymentsCollection = client
+      .db("daily_bangladesh")
+      .collection("payments");
 
     // jwt related api
-    app.post("/jwt", async(req, res)=>{
+    app.post("/jwt", async (req, res) => {
       const user = req.body;
-      const token =jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: "20h" })
-      res.send({token})
-    })
-
-
-
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "20h",
+      });
+      res.send({ token });
+    });
 
     // middlewares
-    const verifyToken = (req, res, next) =>{
+    const verifyToken = (req, res, next) => {
       console.log("inside verify token", req.headers.authorization);
-      if(!req.headers.authorization){
-        return res.status(401).send({message: "forbidden access"})
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "forbidden access" });
       }
-      const token = req.headers.authorization.split(" ")[1]
-      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded)=>{
-      if(error){
-        return res.status(401).send({message: "unauthorized access"})
-      }
-      req.decoded = decoded;
-      next();
-     })
-    } 
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+        if (error) {
+          return res.status(401).send({ message: "unauthorized access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
 
-     // verify admin 
-     const verifyAdmin = async (req, res, next) => {
+    // verify admin
+    const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
-      const query = { email: email }
-      const user = await usersCollection.findOne(query)
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
       const isAdmin = user?.role === "admin";
       if (!isAdmin) {
-        return res.status(403).send({ message: "forbidden access" })
+        return res.status(403).send({ message: "forbidden access" });
       }
-      next()
-    }
-
-
-
+      next();
+    };
 
     // users related api
-    app.post("/users", async(req, res)=>{
+    app.post("/users", async (req, res) => {
       const user = req.body;
-      const query = {email: user.email}
-      const existingUser = await usersCollection.findOne(query)
-      if(existingUser){
-        return res.send({message: "user already exists", insertedId: null})
+      const query = { email: user.email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "user already exists", insertedId: null });
       }
       const result = await usersCollection.insertOne(user);
-      res.send(result)
-    })
+      res.send(result);
+    });
 
-    app.patch("/users/admin/:id",verifyToken,verifyAdmin, async(req, res) =>{
-      const id = req.params.id 
-      const filter = {_id: new ObjectId(id)};
-      const updatedDoc = {
-        $set: {
-          role: "admin",
-        }
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await usersCollection.updateOne(filter, updatedDoc);
+        res.send(result);
       }
-      const result = await usersCollection.updateOne(filter, updatedDoc)
-      res.send(result)
-    })
+    );
 
-    app.get("/users",verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       console.log(req.headers);
-      const result = await usersCollection.find().toArray()
-      res.send(result)
-    })
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
 
-    app.get("/user/admin/:email",verifyToken, async(req, res)=>{
+    app.get("/user/admin/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
-      if(email !== req.decoded.email){
-        return res.status(403).send({message:"unauthorized access"})
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "unauthorized access" });
       }
-      const query = {email: email};
-      const user = await usersCollection.findOne(query)
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
       let admin = false;
-      if(user){
+      if (user) {
         admin = user?.role === "admin";
       }
-      res.send({admin})
-    })
+      res.send({ admin });
+    });
 
-      // Fetch user data by ID
-   app.get("/users/:id", async (req, res) => {
-    const id = req.params.id;
-    const query = { _id: new ObjectId(id) };
-     const user = await usersCollection.findOne(query);
-     if (!user) {
-     return res.status(404).send({ message: "User not found" });
-    }
-    res.send(user);
-   });
- 
- 
-     // Update user data by ID
-   app.patch("/users/:id", async (req, res) => {
-   const id = req.params.id;
-   const updates = req.body; 
-   const filter = { _id: new ObjectId(id) };
-   const updatedDoc = {
-     $set: updates,
-   };
-   const result = await usersCollection.updateOne(filter, updatedDoc);
-   if (result.matchedCount === 0) {
-     return res.status(404).send({ message: "User not found" });
-   }
-   res.send(result);
- });
+    // Fetch user data by ID
+    app.get("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const user = await usersCollection.findOne(query);
+      if (!user) {
+        return res.status(404).send({ message: "User not found" });
+      }
+      res.send(user);
+    });
 
-    
-    
+    // Update user data by ID
+    app.patch("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const updates = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: updates,
+      };
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      if (result.matchedCount === 0) {
+        return res.status(404).send({ message: "User not found" });
+      }
+      res.send(result);
+    });
 
-    // all article related api  
+    // all article related api
     app.post("/add-article", async (req, res) => {
       const article = req.body;
-      article.status = "pending"; 
+      article.status = "pending";
       const result = await articleCollection.insertOne(article);
       res.send(result);
     });
@@ -178,32 +176,25 @@ async function run() {
       res.send(result);
     });
 
-
-
-    
-
-
     app.put("/make-premium/:id", async (req, res) => {
       const articleId = req.params.id;
-    
-     
+
       if (!ObjectId.isValid(articleId)) {
         return res.status(400).json({ message: "Invalid article ID" });
       }
-    
+
       try {
-      
         const query = { _id: new ObjectId(articleId) };
         const updateDoc = {
           $set: { isPremium: true },
         };
-    
+
         const result = await articleCollection.updateOne(query, updateDoc);
-    
+
         if (result.matchedCount === 0) {
           return res.status(404).json({ message: "Article not found" });
         }
-    
+
         res.json({ message: "Article marked as premium successfully" });
       } catch (error) {
         console.error("Error updating article:", error);
@@ -211,12 +202,8 @@ async function run() {
       }
     });
 
-
-
-
-
     app.get("/articles-approved", async (req, res) => {
-      const { status } = req.query; 
+      const { status } = req.query;
       let query = {};
       if (status) {
         query.status = status;
@@ -224,20 +211,18 @@ async function run() {
       const articles = await articleCollection.find(query).toArray();
       res.send(articles);
     });
-        
-    
-    app.get('/articles',verifyToken, async( req, res)=>{
-      const result = await articleCollection.find().toArray()
-      res.send(result)
-  })
 
-    app.delete("/delete-article/:id", async(req, res)=>{
-      const id = req.params.id
-      const query = {_id: new ObjectId(id)}
-      const result = await articleCollection.deleteOne(query)
-      res.send(result)
-    })  
+    app.get("/articles", verifyToken, async (req, res) => {
+      const result = await articleCollection.find().toArray();
+      res.send(result);
+    });
 
+    app.delete("/delete-article/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await articleCollection.deleteOne(query);
+      res.send(result);
+    });
 
     app.get("/article/:id", async (req, res) => {
       const id = req.params.id;
@@ -246,66 +231,61 @@ async function run() {
       res.send(result);
     });
 
-
-
-    
-    
     // Publisher related api
-    app.post("/add-publishers",async(req, res)=>{
+    app.post("/add-publishers", async (req, res) => {
       const publisher = req.body;
-      const result = await publishersCollection.insertOne(publisher)
-      res.send(result)
-    })
+      const result = await publishersCollection.insertOne(publisher);
+      res.send(result);
+    });
 
-    app.get("/publishers",async(req, res)=>{
-      const result = await publishersCollection.find().toArray()
-      res.send(result)
-    })
+    app.get("/publishers", async (req, res) => {
+      const result = await publishersCollection.find().toArray();
+      res.send(result);
+    });
 
     // payment intent
-    app.post("/payment-intent", async(req, res)=>{
-      const {price} = req.body;
+    app.post("/payment-intent", async (req, res) => {
+      const { price } = req.body;
       const amount = parseInt(price * 100);
       console.log(amount, "inside the intent");
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: "usd",
-        payment_method_types: ["card"]
-      })
+        payment_method_types: ["card"],
+      });
 
       res.send({
-        clientSecret: paymentIntent.client_secret
-      })
-    })
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
 
-    app.post("/payments", async(req, res)=>{
+    app.post("/payments", async (req, res) => {
       const payment = req.body;
       const paymentResult = await paymentsCollection.insertOne(payment);
       console.log("payment info", payment);
-      res.send(paymentResult)
-    })
+      res.send(paymentResult);
+    });
 
-
-  
-
+    app.get("/headline", async (req, res) => {
+      const headline = await headline.find().sort({ createdAt: -1 });
+      res.json(headline);
+    });
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
-    // await client.close(); 
+    // await client.close();
   }
 }
 run().catch(console.dir);
 
+app.get("/", (req, res) => {
+  res.send("daily bd server running");
+});
 
-
-app.get("/", (req, res)=>{
-    res.send("daily bd server running")
-})
-
-app.listen(port, ()=>{
-   console.log(`daily bd server is running on port ${port}`);
-})
+app.listen(port, () => {
+  console.log(`daily bd server is running on port ${port}`);
+});
