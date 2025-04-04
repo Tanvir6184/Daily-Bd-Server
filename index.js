@@ -268,8 +268,16 @@ async function run() {
     });
 
     app.get("/headline", async (req, res) => {
-      const headline = await headline.find().sort({ createdAt: -1 });
-      res.json(headline);
+      try {
+        const articles = await articleCollection
+          .find({}, { projection: { title: 1, _id: 0 } })
+          .sort({ createdAt: -1 }) // Sort by newest first
+          .toArray(); // Convert to array
+
+        res.json(articles);
+      } catch (err) {
+        res.status(500).json({ error: "Server error", details: err.message });
+      }
     });
 
     // Send a ping to confirm a successful connection
