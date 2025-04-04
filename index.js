@@ -271,8 +271,8 @@ async function run() {
       try {
         const articles = await articleCollection
           .find({}, { projection: { title: 1, _id: 0 } })
-          .sort({ createdAt: -1 }) // Sort by newest first
-          .toArray(); // Convert to array
+          .sort({ createdAt: -1 })
+          .toArray();
 
         res.json(articles);
       } catch (err) {
